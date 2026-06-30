@@ -1,0 +1,17 @@
+# 流萤 Live2D 模型放置目录
+
+将获取到的 Live2D 模型文件放在此目录，结构示例：
+```
+model/
+├─ your_model.model3.json   ← 模型配置入口（阶段1代码会读取它）
+├─ your_model.moc3
+├─ your_model.2048/
+│  └─ texture_00.png        ← 贴图
+├─ motions/
+│  └─ *.motion3.json
+└─ expressions/
+   └─ *.exp3.json
+```
+
+> ⚠️ 模型版权归米哈游及模型原作者所有，仅限个人自用，禁止商用/分发。
+> 该目录已在 .gitignore 中排除，不会被提交。

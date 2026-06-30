@@ -1,0 +1,10 @@
+node_modules
+dist
+out
+.DS_Store
+*.log
+.env
+.env.local
+# Live2D 模型素材较大且有版权，不入库
+resources/model/*
+!resources/model/.gitkeep
