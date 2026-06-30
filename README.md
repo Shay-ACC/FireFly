@@ -6,7 +6,7 @@
 
 ---
 
-## 当前阶段：阶段 0（环境与脚手架）✅
+## 当前阶段：阶段 1（Live2D 登场）✅
 
 已完成：
 - ✅ electron-vite + Vue 3 + TypeScript 脚手架
@@ -14,9 +14,39 @@
 - ✅ 独立的**聊天窗口**（chatWindow），吸附在人物左侧
 - ✅ **点击穿透**（鼠标进入人物区域才接管，离开则放行到桌面）
 - ✅ 全局快捷键 `Cmd/Ctrl+Shift+F` 唤出/隐藏聊天窗
-- ✅ 两个窗口的占位 UI（流萤形象区 + 聊天面板）
+- ✅ **Live2D 流萤模型加载**（Cubism 4 / moc3）
+- ✅ 透明背景漂浮在桌面、待机动作（Tick2 组）定时随机切换、眼神跟随鼠标
+- ✅ 模型入口自动扫描（无需手改配置）
 
-> 阶段 1 起：接入 Live2D 模型 → AI 对话 → TTS → 口型同步 → 长期记忆。
+> 阶段 2 起：AI 对话 → TTS → 口型同步 → 长期记忆。
+
+---
+
+## ⚠️ 克隆后必须补全的资源（已被 gitignore 排除）
+
+由于体积/版权原因，以下资源未入库，clone 后需手动补全：
+
+### 1. Cubism Core 运行时（必需）
+```bash
+# 下载到 src/renderer/public/live2dcubismcore.min.js
+curl -L -o src/renderer/public/live2dcubismcore.min.js \
+  "https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"
+```
+
+### 2. Live2D 模型（必需）
+将流萤 moc3 模型放入 `src/renderer/public/model/firefly/`，结构：
+```
+src/renderer/public/model/firefly/
+├─ FileReferences_Moc_0.model3.json   ← 入口（程序自动扫描）
+├─ FileReferences_Moc_0.moc3
+├─ textures/*.png
+├─ motions/*.motion3.json
+├─ expressions/*.exp3.json
+└─ physics/*.physic3.json
+```
+> ⚠️ 模型版权归米哈游及原作者所有，仅限个人自用，禁止商用/分发。
+
+---
 
 ---
 

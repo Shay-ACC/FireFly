@@ -23,9 +23,8 @@ export function createPetWindow(): BrowserWindow {
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: false,
-    vibrancy: undefined,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
       contextIsolation: true
     }
@@ -65,7 +64,7 @@ export function createChatWindow(petBounds?: Electron.Rectangle): BrowserWindow 
     skipTaskbar: true,
     hasShadow: false,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
       contextIsolation: true
     }

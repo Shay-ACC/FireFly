@@ -9,6 +9,7 @@ declare global {
       hideChat: () => void
       quit: () => void
       screenSize: () => Promise<{ width: number; height: number }>
+      scanModel: () => Promise<string | null>
     }
     electron: ElectronAPI
   }

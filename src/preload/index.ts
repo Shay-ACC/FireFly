@@ -19,6 +19,9 @@ const api = {
   /** 查询屏幕工作区尺寸 */
   screenSize: () => ipcRenderer.invoke('screen:size'),
 
+  /** 扫描模型目录，返回 .model3.json 的可访问路径（找不到返回 null） */
+  scanModel: () => ipcRenderer.invoke('model:scan')
+
   // ===== 后续阶段将在此扩展（agent / tts / memory）=====
 }
 

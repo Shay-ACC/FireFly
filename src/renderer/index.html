@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Firefly Companion</title>
+    <!--
+      Cubism 4 Core 运行时：必须在 Live2D 业务代码之前加载。
+      pixi-live2d-display 依赖 window 上存在的 Live2DCubismCore 全局对象。
+      用普通 <script> 同步加载，确保后续 ESM 模块执行时已就绪。
+    -->
+    <script src="/live2dcubismcore.min.js"></script>
   </head>
   <body>
     <div id="app"></div>

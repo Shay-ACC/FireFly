@@ -1,4 +1,6 @@
-import { ipcMain, BrowserWindow, screen } from 'electron'
+import { ipcMain, BrowserWindow, screen, app } from 'electron'
+import { join, sep } from 'path'
+import { existsSync, readdirSync, statSync } from 'fs'
 
 /**
  * 注册所有 IPC 通道
@@ -41,4 +43,69 @@ export function registerIpc(getWindows: () => {
     const { width, height } = screen.getPrimaryDisplay().workAreaSize
     return { width, height }
   })
+
+  /**
+   * 扫描模型目录，返回 .model3.json 的可访问 URL。
+   *
+   * 模型约定放在 src/renderer/public/model/<name>/ 下，
+   * 开发期映射到 renderer 进程根，打包后映射到 /model/。
+   *
+   * 这里递归查找第一个 .model3.json，返回形如 "/model/<name>/xxx.model3.json" 的路径。
+   */
+  ipcMain.handle('model:scan', () => {
+    // public 目录在不同环境下位置不同，分别尝试
+    const candidates = [
+      // 开发期：electron-vite 的 public 目录就在 src/renderer/public
+      join(app.getAppPath(), 'src/renderer/public/model'),
+      // 开发期 out 目录
+      join(__dirname, '../renderer/model'),
+      // 打包后 asar 内
+      join(process.resourcesPath || '', 'model')
+    ]
+
+    for (const modelRoot of candidates) {
+      if (!existsSync(modelRoot)) continue
+      const entry = findModel3Json(modelRoot)
+      if (entry) return entry
+    }
+    return null
+  })
+
+  /**
+   * 递归查找 .model3.json 文件，返回相对于 public 根的可访问路径。
+   */
+  function findModel3Json(dir: string, depth = 0): string | null {
+    if (depth > 3) return null
+    let entries: string[] = []
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      return null
+    }
+    for (const name of entries) {
+      const full = join(dir, name)
+      if (name.endsWith('.model3.json')) {
+        // 转成 URL 路径：保留 model/ 之后的相对部分
+        const idx = full.split(sep).indexOf('model')
+        if (idx >= 0) {
+          return '/' + full.split(sep).slice(idx).join('/')
+        }
+        return null
+      }
+    }
+    // 没找到则进入子目录
+    for (const name of entries) {
+      if (name.startsWith('.')) continue
+      const full = join(dir, name)
+      try {
+        if (statSync(full).isDirectory()) {
+          const found = findModel3Json(full, depth + 1)
+          if (found) return found
+        }
+      } catch {
+        // 不是目录或无权限，跳过
+      }
+    }
+    return null
+  }
 }
