@@ -42,6 +42,13 @@ const errorMsg = ref('')
 const appRef = shallowRef<PIXI.Application | null>(null)
 const modelRef = shallowRef<any>(null)
 
+// ===== 口型同步（阶段 4）=====
+// 接收 chat 窗口推来的实时音量值，在 ticker 里驱动 ParamMouthOpenY
+const targetMouthOpen = ref(0) // 目标开合度（来自 IPC）
+const isSpeaking = ref(false)
+let lipSyncCleanup: (() => void) | null = null
+let speakingCleanup: (() => void) | null = null
+
 onMounted(async () => {
   try {
     const hasCore = typeof (globalThis as any).Live2DCubismCore !== 'undefined'
@@ -78,6 +85,42 @@ onMounted(async () => {
 
     // 窗口尺寸变化重适配
     app.renderer.on('resize', fitModel)
+
+    // ===== 口型同步：注册 IPC 监听，接收 chat 窗口推来的实时音量 =====
+    const api = (window as any).api
+    const cm = (model as any).internalModel?.coreModel
+    if (api?.onMouthOpen) {
+      lipSyncCleanup = api.onMouthOpen((v: number) => {
+        targetMouthOpen.value = v
+      })
+    }
+    if (api?.onSpeaking) {
+      speakingCleanup = api.onSpeaking((speaking: boolean) => {
+        isSpeaking.value = speaking
+        const motionManager = (model as any).internalModel?.motionManager
+        if (speaking) {
+          // 说话期间：停止所有动作和表情，避免它们覆盖嘴型
+          stopIdleLoop()
+          try {
+            motionManager?.stopAllMotions?.()
+          } catch {}
+        } else {
+          // 说完恢复：闭嘴 + 恢复待机
+          targetMouthOpen.value = 0
+          startIdleLoop()
+        }
+      })
+    }
+
+    // 口型驱动：用高频 setInterval 直接写参数，绕开库的覆盖。
+    const coreModel = cm
+    setInterval(() => {
+      if (!coreModel) return
+      try {
+        const target = isSpeaking.value ? targetMouthOpen.value : 0
+        coreModel.setParameterValueById?.('ParamMouthOpenY', target)
+      } catch {}
+    }, 16) // ~60fps
 
     console.log('[Live2D] 模型加载完成')
     status.value = 'ready'
@@ -163,6 +206,8 @@ function stopIdleLoop(): void {
 
 onBeforeUnmount(() => {
   stopIdleLoop()
+  lipSyncCleanup?.()
+  speakingCleanup?.()
   try {
     modelRef.value?.destroy()
   } catch {}

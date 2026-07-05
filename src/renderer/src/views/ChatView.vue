@@ -80,8 +80,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, nextTick, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useApi } from '@/composables/useApi'
+import { useLipSync } from '@/composables/useLipSync'
 
 interface Message {
   role: 'user' | 'firefly'
@@ -105,6 +106,16 @@ const audioQueue = ref<string[]>([]) // 待播放的音频 dataURL 队列
 const isPlaying = ref(false)
 let currentAudio: HTMLAudioElement | null = null
 
+// ===== 口型同步（阶段 4）=====
+// 音频播放时实时分析音量 → 推给 pet 窗口驱动 Live2D 嘴型
+const lipSync = useLipSync()
+watch(
+  () => lipSync.mouthOpen.value,
+  (v) => {
+    if (lipSync.isActive.value) api.setMouthOpen(v)
+  }
+)
+
 /** 触发流萤最后一条回复的 TTS 合成 */
 function triggerTtsForLastReply() {
   if (!ttsEnabled.value) return
@@ -121,6 +132,10 @@ function playNextAudio() {
   const next = audioQueue.value.shift()
   if (!next) {
     isPlaying.value = false
+    // 队列空了：停止说话，闭嘴
+    lipSync.stop()
+    api.setSpeaking(false)
+    api.setMouthOpen(0)
     return
   }
   isPlaying.value = true
@@ -129,6 +144,10 @@ function playNextAudio() {
     currentAudio = null
   }
   currentAudio = new Audio(next)
+  // 接入口型同步：分析此音频元素的音量
+  lipSync.attach(currentAudio)
+  api.setSpeaking(true)
+
   currentAudio.onended = () => playNextAudio()
   currentAudio.onerror = () => playNextAudio() // 出错跳过，继续下一句
   currentAudio.play().catch(() => playNextAudio())
@@ -142,6 +161,9 @@ function stopTts() {
     currentAudio = null
   }
   isPlaying.value = false
+  lipSync.stop()
+  api.setSpeaking(false)
+  api.setMouthOpen(0)
 }
 
 // 清理 IPC 监听器的函数集合
@@ -209,6 +231,10 @@ const send = async () => {
     showSettings.value = true
     return
   }
+
+  // 关键：在用户点击发送的调用栈里解锁 AudioContext
+  // 否则后续播放音频时 AudioContext 处于 suspended，音量分析失效（嘴不动）
+  lipSync.unlock()
 
   errorMessage.value = ''
   messages.value.push({ role: 'user', content: text })

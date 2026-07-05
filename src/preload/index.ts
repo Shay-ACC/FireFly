@@ -81,6 +81,24 @@ const api = {
     const handler = (_e: unknown, data: { requestId: string; message: string }) => cb(data)
     ipcRenderer.on('tts:error', handler as any)
     return () => ipcRenderer.removeListener('tts:error', handler as any)
+  },
+
+  // ===== 口型同步（阶段 4）=====
+  /** chat 窗口：发送实时嘴型开合度（0~1）给 pet 窗口 */
+  setMouthOpen: (value: number) => ipcRenderer.send('pet:set-mouth-open', value),
+  /** chat 窗口：通知流萤开始/停止说话 */
+  setSpeaking: (speaking: boolean) => ipcRenderer.send('pet:speaking', speaking),
+  /** pet 窗口：监听嘴型开合度 */
+  onMouthOpen: (cb: (value: number) => void) => {
+    const handler = (_e: unknown, value: number) => cb(value)
+    ipcRenderer.on('pet:mouth-open', handler as any)
+    return () => ipcRenderer.removeListener('pet:mouth-open', handler as any)
+  },
+  /** pet 窗口：监听说话状态变化 */
+  onSpeaking: (cb: (speaking: boolean) => void) => {
+    const handler = (_e: unknown, speaking: boolean) => cb(speaking)
+    ipcRenderer.on('pet:speaking', handler as any)
+    return () => ipcRenderer.removeListener('pet:speaking', handler as any)
   }
 }
 

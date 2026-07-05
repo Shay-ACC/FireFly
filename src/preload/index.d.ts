@@ -32,6 +32,12 @@ declare global {
       onTtsAudio: (cb: (data: { requestId: string; audio: string }) => void) => () => void
       onTtsDone: (cb: (data: { requestId: string }) => void) => () => void
       onTtsError: (cb: (data: { requestId: string; message: string }) => void) => () => void
+
+      // 口型同步
+      setMouthOpen: (value: number) => void
+      setSpeaking: (speaking: boolean) => void
+      onMouthOpen: (cb: (value: number) => void) => () => void
+      onSpeaking: (cb: (speaking: boolean) => void) => () => void
     }
     electron: ElectronAPI
   }

@@ -19,6 +19,19 @@ export function registerIpc(getWindows: () => {
     getWindows().pet?.setIgnoreMouseEvents(ignore, { forward: true })
   })
 
+  /**
+   * 口型同步（阶段 4）：chat 窗口播放音频时实时分析音量，
+   * 通过此通道把「嘴型开合度 0~1」转发给 pet 窗口驱动 Live2D 嘴型。
+   */
+  ipcMain.on('pet:set-mouth-open', (_event, value: number) => {
+    getWindows().pet?.webContents.send('pet:mouth-open', value)
+  })
+
+  /** 语音开始/结束信号（让 pet 窗口知道流萤开始/停止说话） */
+  ipcMain.on('pet:speaking', (_event, speaking: boolean) => {
+    getWindows().pet?.webContents.send('pet:speaking', speaking)
+  })
+
   // 唤出/隐藏聊天窗口
   ipcMain.on('chat:toggle', () => {
     const chat = getWindows().chat
