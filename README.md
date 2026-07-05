@@ -1,40 +1,64 @@
-# 🌸 流萤陪伴 Agent · Firefly Companion
+# 🌸 Firefly Companion · 流萤陪伴 Agent
 
-桌面 Live2D 桌宠 + AI 对话 + 语音口型同步 —— 让《崩坏：星穹铁道》的流萤陪伴你。
+> 让《崩坏：星穹铁道》的「流萤」以**她本人**的方式陪伴你 —— 桌面 Live2D 桌宠 + AI 对话 + 语音口型同步
 
-> 📖 完整设计见上级目录的 **[《计划书.md》](../计划书.md)**
-
----
-
-## 当前阶段：阶段 1（Live2D 登场）✅
-
-已完成：
-- ✅ electron-vite + Vue 3 + TypeScript 脚手架
-- ✅ 透明、置顶、无边框的**浮动人物窗口**（petWindow）
-- ✅ 独立的**聊天窗口**（chatWindow），吸附在人物左侧
-- ✅ **点击穿透**（鼠标进入人物区域才接管，离开则放行到桌面）
-- ✅ 全局快捷键 `Cmd/Ctrl+Shift+F` 唤出/隐藏聊天窗
-- ✅ **Live2D 流萤模型加载**（Cubism 4 / moc3）
-- ✅ 透明背景漂浮在桌面、待机动作（Tick2 组）定时随机切换、眼神跟随鼠标
-- ✅ 模型入口自动扫描（无需手改配置）
-
-> 阶段 2 起：AI 对话 → TTS → 口型同步 → 长期记忆。
+<p align="center">
+  <strong>会动 · 会聊 · 会说话 · 说话时嘴型还跟着声音同步</strong>
+</p>
 
 ---
 
-## ⚠️ 克隆后必须补全的资源（已被 gitignore 排除）
+## ✨ 功能特性
 
-由于体积/版权原因，以下资源未入库，clone 后需手动补全：
+| 能力 | 状态 | 说明 |
+|---|:---:|---|
+| **桌面浮动人物** | ✅ | 透明置顶、可拖动、点击穿透、眼神跟随鼠标 |
+| **Live2D 模型** | ✅ | 加载 Cubism 4 moc3 模型，待机动作定时随机切换 |
+| **AI 对话** | ✅ | 流萤人设 System Prompt，流式打字机回复 |
+| **语音合成** | ✅ | edge-tts 免费中文语音，按句切分播放 |
+| **口型同步** | ✅ | Web Audio 实时分析音量 → 驱动 Live2D 嘴型开合 |
+| **长期记忆** | ⬜ | 规划中（阶段 5）|
 
-### 1. Cubism Core 运行时（必需）
+---
+
+## 🛠️ 技术栈
+
+| 层 | 技术 | 说明 |
+|---|---|---|
+| 桌面外壳 | **Electron 31** | 透明置顶窗口 + 多窗口 IPC 通信 |
+| 前端框架 | **Vue 3 + electron-vite** | 组合式 API，TypeScript |
+| Live2D 渲染 | **PixiJS 6 + pixi-live2d-display** | 加载 moc3，驱动嘴型参数 |
+| Cubism 运行时 | `live2dcubismcore.min.js` | Live2D 官方 Cubism 4 Core |
+| Agent 大脑 | **OpenAI SDK → DeepSeek** | OpenAI 兼容接口，流式输出 |
+| 语音合成 | **msedge-tts** | 微软免费中文神经语音 |
+| 口型同步 | **Web Audio API** | AnalyserNode 实时 RMS 音量分析 |
+
+> 💡 **为什么用 Pixi v6 而非 v8？** Pixi v8 存在 `erase` blend mode 回归 bug（[pixijs#11377](https://github.com/pixijs/pixijs/issues/11377)），会导致 Live2D 蒙版渲染空白。v6 是经过验证的稳定方案。
+
+---
+
+## 📦 快速开始
+
+### 1. 克隆并安装
 ```bash
-# 下载到 src/renderer/public/live2dcubismcore.min.js
+git clone git@github.com:Shay-ACC/FireFly.git
+cd FireFly
+npm install
+```
+> 已配置 npmmirror 镜像，国内安装更快。
+
+### 2. ⚠️ 补全必需资源（已被 gitignore 排除）
+
+由于体积/版权原因，以下资源未入库，**必须手动补全**：
+
+#### ① Cubism Core 运行时
+```bash
 curl -L -o src/renderer/public/live2dcubismcore.min.js \
   "https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"
 ```
 
-### 2. Live2D 模型（必需）
-将流萤 moc3 模型放入 `src/renderer/public/model/firefly/`，结构：
+#### ② Live2D 模型
+将流萤 moc3 模型放入 `src/renderer/public/model/firefly/`：
 ```
 src/renderer/public/model/firefly/
 ├─ FileReferences_Moc_0.model3.json   ← 入口（程序自动扫描）
@@ -46,69 +70,154 @@ src/renderer/public/model/firefly/
 ```
 > ⚠️ 模型版权归米哈游及原作者所有，仅限个人自用，禁止商用/分发。
 
----
-
----
-
-## 快速开始
-
-### 1. 安装依赖
+#### ③ 配置 LLM API Key
+复制 `.env.example` 为 `.env`，填入你的 DeepSeek API Key：
 ```bash
-cd firefly-companion
-npm install
+cp .env.example .env
 ```
-> 已配置 npmmirror 镜像，国内安装更快。
+```env
+DEEPSEEK_API_KEY=sk-你的key
+LLM_API_BASE=https://api.deepseek.com/v1
+LLM_MODEL=deepseek-chat
+```
+> 也可启动后在聊天窗右上角 **⚙ 设置** 里临时填写（仅存内存）。
+> API Key 在 https://platform.deepseek.com 注册获取。
 
-### 2. 启动开发
+### 3. 启动
 ```bash
 npm run dev
 ```
-启动后会同时弹出两个窗口：
-- 右下角：透明浮动的人物占位区（带萤火虫光晕）
-- 左侧：聊天面板（占位回复）
+启动后会同时弹出：
+- **右下角透明窗口**：流萤漂浮在桌面（会动、眼神跟随鼠标）
+- **左侧聊天框**：和流萤对话（流式回复 + 自动语音 + 口型同步）
 
-### 3. 交互
+---
+
+## 🎮 使用说明
+
 | 操作 | 效果 |
 |---|---|
-| 鼠标移到人物区 | 取消点击穿透，人物区高亮放大 |
-| 鼠标移开 | 恢复点击穿透，可点穿到桌面 |
+| 鼠标移到流萤上 | 取消点击穿透，可交互 |
+| 鼠标移开 | 恢复点击穿透，点穿到桌面 |
 | `Cmd/Ctrl+Shift+F` | 显示/隐藏聊天窗 |
-- 聊天窗标题栏可**拖动**整个聊天窗位置
-- 人物窗右上角 💬 切换聊天窗、✕ 退出
+| 聊天窗标题栏 | 可拖动整个聊天窗 |
+| 💬 按钮 | 切换聊天窗显隐 |
+| 🔊 / 🔇 按钮 | 开启/关闭语音播放 |
+| ⚙ 按钮 | 设置 API Key / 模型 |
 
 ---
 
-## 目录结构
+## 🏗️ 项目结构
+
 ```
 firefly-companion/
-├─ 计划书.md              ← （在上级目录 ../计划书.md）
 ├─ src/
-│  ├─ main/              ← 主进程：窗口、IPC
-│  │  ├─ index.ts        ← 入口
-│  │  ├─ windows.ts      ← pet/chat 窗口创建
-│  │  └─ ipc.ts          ← IPC 通道
-│  ├─ preload/index.ts   ← 安全 IPC 桥
-│  └─ renderer/          ← 渲染进程（Vue 3）
+│  ├─ main/                          # 主进程（Node 环境）
+│  │  ├─ index.ts                    # 入口：窗口/生命周期/dotenv
+│  │  ├─ windows.ts                  # pet/chat 窗口创建
+│  │  ├─ ipc.ts                      # 所有 IPC 通道注册
+│  │  ├─ agent/                      # Agent 大脑
+│  │  │  ├─ persona.ts               # 流萤人设 System Prompt
+│  │  │  └─ llm.ts                   # LLM 流式调用（OpenAI 兼容）
+│  │  └─ tts/
+│  │     └─ edge-tts.ts              # 语音合成（按句切分）
+│  ├─ preload/
+│  │  ├─ index.ts                    # 安全 IPC 桥（contextBridge）
+│  │  └─ index.d.ts                  # window.api 类型声明
+│  └─ renderer/                      # 渲染进程（Vue 3）
+│     ├─ index.html                  # 引入 cubism core
 │     └─ src/
-│        ├─ main.ts      ← 按 hash 路由到 pet/chat 视图
+│        ├─ main.ts                  # 按 hash 路由到 pet/chat
 │        ├─ views/
-│        │  ├─ PetView.vue   ← 浮动人物（阶段1放 Live2D）
-│        │  └─ ChatView.vue  ← 聊天面板
-│        └─ assets/styles.css
-└─ resources/model/      ← 放流萤 Live2D 模型（阶段1）
+│        │  ├─ PetView.vue           # 浮动人物窗口
+│        │  └─ ChatView.vue          # 聊天 + 语音 + 口型同步
+│        ├─ components/
+│        │  └─ Live2DCanvas.vue      # Live2D 渲染 + 嘴型驱动
+│        ├─ composables/
+│        │  ├─ useApi.ts             # window.api 封装
+│        │  └─ useLipSync.ts         # Web Audio 音量分析
+│        └─ utils/
+│           └─ modelLoader.ts        # 模型入口扫描
+└─ resources/model/                  # 模型备份（不入库）
 ```
 
 ---
 
-## 后续阶段路线（见计划书）
-1. ⭐ Live2D 登场（接入 moc3 模型）
-2. ⭐ Agent 对话（接 LLM）
-3. TTS 语音
-4. ⭐ 口型同步
-5. ⭐ 长期记忆
-6. 打磨与打包
+## 🧠 架构与核心数据流
+
+```
+┌─────────────────────── 主进程 (Node) ───────────────────────┐
+│  窗口管理  │  Agent 大脑 (LLM 流式)  │  TTS (edge-tts)      │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ IPC (contextBridge)
+┌───────────────────────────┴─────────────────────────────────┐
+│  chat 窗口                    │  pet 窗口                    │
+│  · 聊天 UI / 流式文字         │  · Live2D 渲染 (Pixi)        │
+│  · <audio> 播放 TTS           │  · 待机动作 / 眼神跟随        │
+│  · Web Audio 分析音量 ──IPC──→│  · ParamMouthOpenY 嘴型驱动  │
+└───────────────────────────────┴───────────────────────────────┘
+```
+
+**一次对话的完整流程：**
+```
+用户输入 → [unlock AudioContext]
+  → LLM 流式回复（打字机效果）
+  → 回复完成 → edge-tts 按句合成 MP3
+  → chat 窗口 <audio> 播放
+  → 同时 Web Audio 实时分析音量(RMS) → IPC 推给 pet 窗口
+  → pet 窗口高频写入 ParamMouthOpenY → 嘴型随声音开合
+```
 
 ---
 
-## 版权
-流萤（Firefly）角色版权归米哈游所有。本项目为个人学习自用的二次创作，**不得商用**。
+## 🔧 口型同步实现要点
+
+本项目最有技术含量的部分，解决了 4 个深坑：
+
+| 难点 | 方案 |
+|---|---|
+| AudioContext 自动播放策略 | 用户点击「发送」时 `unlock()` resume |
+| 窗口失焦 RAF 被节流 | `setInterval(33ms)` 替代 `requestAnimationFrame` |
+| 库 update 覆盖嘴型参数 | 高频 `setInterval` 直接写 `ParamMouthOpenY`，绕开 Pixi 管线 |
+| 表情/动作覆盖嘴型 | 说话时 `stopAllMotions()` + 停止 idle 循环 |
+
+详见 `src/renderer/src/composables/useLipSync.ts` 和 `Live2DCanvas.vue`。
+
+---
+
+## 📜 脚本
+
+```bash
+npm run dev          # 开发模式
+npm run build        # 生产构建
+npm run typecheck    # 类型检查
+npm run build:mac    # 打包 macOS
+npm run build:win    # 打包 Windows
+```
+
+---
+
+## 🗺️ 开发路线图
+
+- ✅ **阶段 0**：环境与脚手架
+- ✅ **阶段 1**：Live2D 流萤登场（桌面浮动 + 待机动作 + 眼神跟随）
+- ✅ **阶段 2**：Agent 对话（LLM + 人设 + 流式回复）
+- ✅ **阶段 3**：TTS 语音（edge-tts 中文语音）
+- ✅ **阶段 4**：口型同步 ⭐（边说边动嘴）
+- ⬜ **阶段 5**：长期记忆（跨会话记住用户）
+- ⬜ **阶段 6**：打磨与打包（设置持久化、托盘、错误处理）
+
+---
+
+## ⚖️ 版权与合规
+
+- **流萤（Firefly）角色版权归米哈游所有**。本项目为个人学习与自用的二次创作，**不得用于商业用途**，不得公开分发模型素材。
+- Live2D 同人模型请遵循原作者的使用授权条款。
+- edge-tts 为微软「大声朗读」的非官方接口，仅用于学习；商用请使用官方授权 TTS 服务。
+- 使用在线 LLM API 时，注意不输入敏感个人信息。
+
+---
+
+## 📄 License
+
+UNLICENSED（仅供个人学习使用）
