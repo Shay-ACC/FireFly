@@ -2,6 +2,7 @@ import { ipcMain, BrowserWindow, screen, app } from 'electron'
 import { join, sep } from 'path'
 import { existsSync, readdirSync, statSync } from 'fs'
 import { chatStream, setLlmConfig, getLlmConfig, type ChatMessage } from './agent/llm'
+import { synthesizeText } from './tts/edge-tts'
 
 /**
  * 注册所有 IPC 通道
@@ -71,8 +72,38 @@ export function registerIpc(getWindows: () => {
   })
 
   // ===== 占位：后续阶段实现的通道 =====
-  // tts:synthesize    —— 阶段 3 实现（edge-tts 语音合成）
   // memory:recall     —— 阶段 5 实现（长期记忆检索）
+
+  // ===== TTS 语音合成（阶段 3）=====
+  /**
+   * 合成文本为语音。主进程按句切分，逐句合成 MP3 后推送回渲染进程。
+   * 约定事件：'tts:audio'（一句的 base64 MP3）/ 'tts:done' / 'tts:error'
+   */
+  ipcMain.handle(
+    'tts:synthesize',
+    async (event, payload: { requestId: string; text: string; voice?: string }) => {
+      const { requestId, text, voice } = payload
+      const sender = event.sender
+      try {
+        await synthesizeText(text, voice, (idx, total) => {
+          // 进度回调（可选，预留）
+          void idx
+          void total
+        }).then((buffers) => {
+          // 逐句推送
+          for (const buf of buffers) {
+            sender.send('tts:audio', {
+              requestId,
+              audio: 'data:audio/mp3;base64,' + buf.toString('base64')
+            })
+          }
+          sender.send('tts:done', { requestId })
+        })
+      } catch (err: any) {
+        sender.send('tts:error', { requestId, message: err?.message || String(err) })
+      }
+    }
+  )
 
   // 屏幕尺寸查询（渲染进程布局用）
   ipcMain.handle('screen:size', () => {

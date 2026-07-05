@@ -26,6 +26,12 @@ declare global {
       onChatError: (cb: (data: { requestId: string; message: string }) => void) => () => void
       getLlmConfig: () => Promise<LlmConfig>
       setLlmConfig: (cfg: { apiKey?: string; baseUrl?: string; model?: string }) => Promise<LlmConfig>
+
+      // TTS 语音合成
+      synthesize: (text: string, voice?: string) => Promise<void>
+      onTtsAudio: (cb: (data: { requestId: string; audio: string }) => void) => () => void
+      onTtsDone: (cb: (data: { requestId: string }) => void) => () => void
+      onTtsError: (cb: (data: { requestId: string; message: string }) => void) => () => void
     }
     electron: ElectronAPI
   }

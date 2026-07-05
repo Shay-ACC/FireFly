@@ -4,6 +4,12 @@
     <div class="title-bar">
       <span class="title">🌸 流萤</span>
       <div class="title-actions">
+        <button
+          class="icon-btn"
+          :class="{ active: ttsEnabled }"
+          :title="ttsEnabled ? '语音开（点击关闭）' : '语音关（点击开启）'"
+          @click="ttsEnabled = !ttsEnabled; !ttsEnabled && stopTts()"
+        >{{ ttsEnabled ? '🔊' : '🔇' }}</button>
         <button class="icon-btn" title="设置" @click="showSettings = !showSettings">⚙</button>
         <button class="icon-btn" title="隐藏" @click="api.hideChat()">—</button>
       </div>
@@ -93,6 +99,51 @@ const showSettings = ref(false)
 const config = reactive({ baseUrl: '', model: '', hasKey: false })
 const settings = reactive({ apiKey: '', baseUrl: '', model: 'deepseek-chat' })
 
+// ===== TTS 语音播放 =====
+const ttsEnabled = ref(true) // 语音开关（标题栏 🔊 按钮）
+const audioQueue = ref<string[]>([]) // 待播放的音频 dataURL 队列
+const isPlaying = ref(false)
+let currentAudio: HTMLAudioElement | null = null
+
+/** 触发流萤最后一条回复的 TTS 合成 */
+function triggerTtsForLastReply() {
+  if (!ttsEnabled.value) return
+  const lastFirefly = [...messages.value].reverse().find((m) => m.role === 'firefly')
+  if (lastFirefly && lastFirefly.content.trim()) {
+    // 清空旧队列，开始新的合成
+    audioQueue.value = []
+    api.synthesize(lastFirefly.content)
+  }
+}
+
+/** 播放下一段音频（队列驱动，按句顺序播放） */
+function playNextAudio() {
+  const next = audioQueue.value.shift()
+  if (!next) {
+    isPlaying.value = false
+    return
+  }
+  isPlaying.value = true
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio = null
+  }
+  currentAudio = new Audio(next)
+  currentAudio.onended = () => playNextAudio()
+  currentAudio.onerror = () => playNextAudio() // 出错跳过，继续下一句
+  currentAudio.play().catch(() => playNextAudio())
+}
+
+/** 停止所有语音播放 */
+function stopTts() {
+  audioQueue.value = []
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio = null
+  }
+  isPlaying.value = false
+}
+
 // 清理 IPC 监听器的函数集合
 let cleanups: (() => void)[] = []
 
@@ -117,6 +168,8 @@ onMounted(async () => {
     }),
     api.onChatDone(() => {
       sending.value = false
+      // 回复完成后，自动触发 TTS 语音合成（若开启）
+      triggerTtsForLastReply()
     }),
     api.onChatError(({ message }) => {
       sending.value = false
@@ -126,6 +179,16 @@ onMounted(async () => {
       if (last && last.role === 'firefly' && last.content === '') {
         messages.value.pop()
       }
+    }),
+    // TTS：收到合成的音频（逐句推送），加入播放队列
+    api.onTtsAudio(({ audio }) => {
+      audioQueue.value.push(audio)
+      // 若没在播放，启动播放
+      if (!isPlaying.value) playNextAudio()
+    }),
+    api.onTtsDone(() => {}),
+    api.onTtsError(({ message }) => {
+      console.error('[TTS] 合成失败:', message)
     })
   )
 
@@ -136,6 +199,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   cleanups.forEach((fn) => fn())
   cleanups = []
+  stopTts()
 })
 
 const send = async () => {
@@ -242,6 +306,9 @@ const scrollBottom = async () => {
 }
 .icon-btn:hover {
   background: rgba(255, 255, 255, 0.25);
+}
+.icon-btn.active {
+  background: rgba(255, 180, 100, 0.25);
 }
 
 /* 设置面板 */

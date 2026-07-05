@@ -57,7 +57,31 @@ const api = {
       baseUrl: string
       model: string
       hasKey: boolean
-    }>
+    }>,
+
+  // ===== TTS 语音合成（阶段 3）=====
+  /** 合成文本为语音，结果通过 onTtsAudio/onTtsDone/onTtsError 回调推送 */
+  synthesize: (text: string, voice?: string) =>
+    ipcRenderer.invoke('tts:synthesize', {
+      requestId: String(Math.random().toString(36).slice(2)),
+      text,
+      voice
+    }),
+  onTtsAudio: (cb: (data: { requestId: string; audio: string }) => void) => {
+    const handler = (_e: unknown, data: { requestId: string; audio: string }) => cb(data)
+    ipcRenderer.on('tts:audio', handler as any)
+    return () => ipcRenderer.removeListener('tts:audio', handler as any)
+  },
+  onTtsDone: (cb: (data: { requestId: string }) => void) => {
+    const handler = (_e: unknown, data: { requestId: string }) => cb(data)
+    ipcRenderer.on('tts:done', handler as any)
+    return () => ipcRenderer.removeListener('tts:done', handler as any)
+  },
+  onTtsError: (cb: (data: { requestId: string; message: string }) => void) => {
+    const handler = (_e: unknown, data: { requestId: string; message: string }) => cb(data)
+    ipcRenderer.on('tts:error', handler as any)
+    return () => ipcRenderer.removeListener('tts:error', handler as any)
+  }
 }
 
 export type Api = typeof api
