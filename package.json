@@ -21,6 +21,8 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^3.0.0",
+    "dotenv": "^17.4.2",
+    "openai": "^6.45.0",
     "pixi-live2d-display": "^0.4.0",
     "pixi.js": "^6.5.10"
   },

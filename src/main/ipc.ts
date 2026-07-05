@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow, screen, app } from 'electron'
 import { join, sep } from 'path'
 import { existsSync, readdirSync, statSync } from 'fs'
+import { chatStream, setLlmConfig, getLlmConfig, type ChatMessage } from './agent/llm'
 
 /**
  * 注册所有 IPC 通道
@@ -33,8 +34,43 @@ export function registerIpc(getWindows: () => {
     process.exit(0)
   })
 
-  // ===== 占位：后续阶段实现的通道（此处仅声明，避免渲染进程调用时报错）=====
-  // agent:chat        —— 阶段 2 实现（LLM 流式对话）
+  // ===== Agent 大脑（阶段 2）=====
+
+  /**
+   * 流式对话。渲染进程发来对话历史，主进程调 LLM 流式返回。
+   * 用 webContents.send 把每个 token 增量推回渲染进程（打字机效果）。
+   *
+   * 约定事件名 'agent:chat:delta' / 'agent:chat:done' / 'agent:chat:error'。
+   */
+  ipcMain.handle(
+    'agent:chat',
+    async (event, payload: { requestId: string; messages: ChatMessage[] }) => {
+      const { requestId, messages } = payload
+      const sender = event.sender
+      try {
+        await chatStream(messages, (delta) => {
+          sender.send('agent:chat:delta', { requestId, delta })
+        })
+        sender.send('agent:chat:done', { requestId })
+      } catch (err: any) {
+        sender.send('agent:chat:error', { requestId, message: err?.message || String(err) })
+      }
+    }
+  )
+
+  /** 读取/保存 LLM 配置（API Key 等）。Key 仅存在内存，重启需重填或写入 .env */
+  ipcMain.handle('agent:get-config', () => {
+    const cfg = getLlmConfig()
+    return { baseUrl: cfg.baseUrl, model: cfg.model, hasKey: !!cfg.apiKey }
+  })
+
+  ipcMain.handle('agent:set-config', (_event, cfg: { apiKey?: string; baseUrl?: string; model?: string }) => {
+    setLlmConfig(cfg)
+    const after = getLlmConfig()
+    return { baseUrl: after.baseUrl, model: after.model, hasKey: !!after.apiKey }
+  })
+
+  // ===== 占位：后续阶段实现的通道 =====
   // tts:synthesize    —— 阶段 3 实现（edge-tts 语音合成）
   // memory:recall     —— 阶段 5 实现（长期记忆检索）
 

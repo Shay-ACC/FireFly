@@ -3,6 +3,9 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createPetWindow, createChatWindow } from './windows'
 import { registerIpc } from './ipc'
 
+// 加载 .env 环境变量（必须在其他模块使用 process.env 之前）
+import 'dotenv/config'
+
 // 全局窗口引用，避免被垃圾回收
 let petWindow: BrowserWindow | undefined
 let chatWindow: BrowserWindow | undefined

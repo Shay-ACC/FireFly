@@ -20,9 +20,44 @@ const api = {
   screenSize: () => ipcRenderer.invoke('screen:size'),
 
   /** 扫描模型目录，返回 .model3.json 的可访问路径（找不到返回 null） */
-  scanModel: () => ipcRenderer.invoke('model:scan')
+  scanModel: () => ipcRenderer.invoke('model:scan'),
 
-  // ===== 后续阶段将在此扩展（agent / tts / memory）=====
+  // ===== Agent 大脑（阶段 2）=====
+  /** 发起流式对话，返回 requestId；实际内容通过 onChatDelta/onChatDone/onChatError 回调推送 */
+  chat: (messages: { role: 'user' | 'assistant'; content: string }[]) =>
+    ipcRenderer.invoke('agent:chat', {
+      requestId: String(Math.random().toString(36).slice(2)),
+      messages
+    }),
+  /** 监听对话增量（打字机效果） */
+  onChatDelta: (cb: (data: { requestId: string; delta: string }) => void) => {
+    const handler = (_e: unknown, data: { requestId: string; delta: string }) => cb(data)
+    ipcRenderer.on('agent:chat:delta', handler as any)
+    return () => ipcRenderer.removeListener('agent:chat:delta', handler as any)
+  },
+  onChatDone: (cb: (data: { requestId: string }) => void) => {
+    const handler = (_e: unknown, data: { requestId: string }) => cb(data)
+    ipcRenderer.on('agent:chat:done', handler as any)
+    return () => ipcRenderer.removeListener('agent:chat:done', handler as any)
+  },
+  onChatError: (cb: (data: { requestId: string; message: string }) => void) => {
+    const handler = (_e: unknown, data: { requestId: string; message: string }) => cb(data)
+    ipcRenderer.on('agent:chat:error', handler as any)
+    return () => ipcRenderer.removeListener('agent:chat:error', handler as any)
+  },
+  /** LLM 配置（API Key / baseUrl / model） */
+  getLlmConfig: () =>
+    ipcRenderer.invoke('agent:get-config') as Promise<{
+      baseUrl: string
+      model: string
+      hasKey: boolean
+    }>,
+  setLlmConfig: (cfg: { apiKey?: string; baseUrl?: string; model?: string }) =>
+    ipcRenderer.invoke('agent:set-config', cfg) as Promise<{
+      baseUrl: string
+      model: string
+      hasKey: boolean
+    }>
 }
 
 export type Api = typeof api
