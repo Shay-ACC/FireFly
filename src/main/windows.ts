@@ -42,7 +42,7 @@ export function createPetWindow(): BrowserWindow {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#/pet')
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'pet' })
+    win.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/pet' })
   }
 
   return win
@@ -87,7 +87,7 @@ export function createChatWindow(petBounds?: Electron.Rectangle): BrowserWindow 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#/chat')
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'chat' })
+    win.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/chat' })
   }
 
   return win

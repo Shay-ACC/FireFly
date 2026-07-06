@@ -50,16 +50,6 @@
       "out/**/*",
       "resources/tray-icon.png"
     ],
-    "extraResources": [
-      {
-        "from": "src/renderer/public/live2dcubismcore.min.js",
-        "to": "live2dcubismcore.min.js"
-      },
-      {
-        "from": "src/renderer/public/model",
-        "to": "model"
-      }
-    ],
     "mac": {
       "category": "public.app-category.entertainment",
       "target": [
@@ -73,7 +63,9 @@
       "icon": "resources/tray-icon.png"
     },
     "asarUnpack": [
-      "**/*.{node,dll}"
+      "**/*.{node,dll}",
+      "**/out/renderer/model/**",
+      "**/out/renderer/live2dcubismcore.min.js"
     ]
   }
 }

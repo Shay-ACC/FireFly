@@ -197,21 +197,23 @@ export function registerIpc(getWindows: () => {
   })
 
   /**
-   * 扫描模型目录，返回 .model3.json 的可访问 URL。
+   * 扫描模型目录，返回 .model3.json 的可访问路径。
    *
-   * 模型约定放在 src/renderer/public/model/<name>/ 下，
-   * 开发期映射到 renderer 进程根，打包后映射到 /model/。
+   * 模型约定放在 src/renderer/public/model/<name>/ 下，electron-vite 会把
+   * public 目录内容复制到 out/renderer/。打包后 asarUnpack 解出到磁盘。
    *
-   * 这里递归查找第一个 .model3.json，返回形如 "/model/<name>/xxx.model3.json" 的路径。
+   * 返回相对路径（如 "./model/firefly/xxx.model3.json"），相对 index.html 所在目录。
+   * 相对路径在开发（dev server）和打包（loadFile file://）下都能正确解析。
    */
   ipcMain.handle('model:scan', () => {
-    // public 目录在不同环境下位置不同，分别尝试
     const candidates = [
-      // 开发期：electron-vite 的 public 目录就在 src/renderer/public
-      join(app.getAppPath(), 'src/renderer/public/model'),
-      // 开发期 out 目录
+      // 开发期：electron-vite 编译后的 out/renderer/model
       join(__dirname, '../renderer/model'),
-      // 打包后 asar 内
+      // 开发期源 public 目录
+      join(app.getAppPath(), 'src/renderer/public/model'),
+      // 打包后 asar.unpacked
+      join(__dirname, '../../out/renderer/model'),
+      // 兜底
       join(process.resourcesPath || '', 'model')
     ]
 
@@ -224,7 +226,7 @@ export function registerIpc(getWindows: () => {
   })
 
   /**
-   * 递归查找 .model3.json 文件，返回相对于 public 根的可访问路径。
+   * 递归查找 .model3.json 文件，返回相对路径（相对 index.html 目录）。
    */
   function findModel3Json(dir: string, depth = 0): string | null {
     if (depth > 3) return null
@@ -237,10 +239,11 @@ export function registerIpc(getWindows: () => {
     for (const name of entries) {
       const full = join(dir, name)
       if (name.endsWith('.model3.json')) {
-        // 转成 URL 路径：保留 model/ 之后的相对部分
-        const idx = full.split(sep).indexOf('model')
+        // 转成相对路径：保留 model/ 之后的相对部分，用 ./ 前缀
+        const parts = full.split(sep)
+        const idx = parts.indexOf('model')
         if (idx >= 0) {
-          return '/' + full.split(sep).slice(idx).join('/')
+          return './' + parts.slice(idx).join('/')
         }
         return null
       }

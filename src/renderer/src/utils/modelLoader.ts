@@ -12,9 +12,9 @@ import { useApi } from '@/composables/useApi'
  */
 
 const FALLBACK_ENTRIES = [
-  '/model/firefly/FileReferences_Moc_0.model3.json',
-  '/model/firefly.model3.json',
-  '/model/index.model3.json'
+  './model/firefly/FileReferences_Moc_0.model3.json',
+  './model/firefly.model3.json',
+  './model/index.model3.json'
 ]
 
 export async function findModelEntry(): Promise<string> {
