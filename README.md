@@ -17,7 +17,11 @@
 | **AI 对话** | ✅ | 流萤人设 System Prompt，流式打字机回复 |
 | **语音合成** | ✅ | edge-tts 免费中文语音，按句切分播放 |
 | **口型同步** | ✅ | Web Audio 实时分析音量 → 驱动 Live2D 嘴型开合 |
-| **长期记忆** | ⬜ | 规划中（阶段 5）|
+| **长期记忆** | ✅ | 智谱 Embedding + SQLite，跨会话记住用户 |
+| **设置持久化** | ✅ | API Key / 语音开关重启不丢失 |
+| **系统托盘** | ✅ | 托盘菜单 + 关窗常驻 |
+| **错误处理** | ✅ | 自动重试 + 友好提示 |
+| **打包分发** | ✅ | 一键生成 DMG / EXE 安装包 |
 
 ---
 
@@ -32,8 +36,12 @@
 | Agent 大脑 | **OpenAI SDK → DeepSeek** | OpenAI 兼容接口，流式输出 |
 | 语音合成 | **msedge-tts** | 微软免费中文神经语音 |
 | 口型同步 | **Web Audio API** | AnalyserNode 实时 RMS 音量分析 |
+| 长期记忆 | **智谱 Embedding-3 + better-sqlite3** | 向量检索 + 本地持久化 |
+| 配置/打包 | **dotenv + electron-builder** | 环境变量 + DMG/EXE 打包 |
 
 > 💡 **为什么用 Pixi v6 而非 v8？** Pixi v8 存在 `erase` blend mode 回归 bug（[pixijs#11377](https://github.com/pixijs/pixijs/issues/11377)），会导致 Live2D 蒙版渲染空白。v6 是经过验证的稳定方案。
+
+> 💡 **为什么记忆用两个供应商？** DeepSeek 不提供 embedding 接口，所以对话用 DeepSeek，向量化用智谱 Embedding-3（免费额度）。两者都是 OpenAI 兼容接口。
 
 ---
 
@@ -70,18 +78,28 @@ src/renderer/public/model/firefly/
 ```
 > ⚠️ 模型版权归米哈游及原作者所有，仅限个人自用，禁止商用/分发。
 
-#### ③ 配置 LLM API Key
-复制 `.env.example` 为 `.env`，填入你的 DeepSeek API Key：
+#### ③ 配置 API Key
+复制 `.env.example` 为 `.env`，填入 API Key：
 ```bash
 cp .env.example .env
 ```
 ```env
+# 对话用（必需）
 DEEPSEEK_API_KEY=sk-你的key
 LLM_API_BASE=https://api.deepseek.com/v1
 LLM_MODEL=deepseek-chat
+
+# 记忆用（可选，不填则不记忆）
+ZHIPU_API_KEY=你的智谱key
+EMBEDDING_API_BASE=https://open.bigmodel.cn/api/paas/v4
+EMBEDDING_MODEL=embedding-3
 ```
-> 也可启动后在聊天窗右上角 **⚙ 设置** 里临时填写（仅存内存）。
-> API Key 在 https://platform.deepseek.com 注册获取。
+| Key | 用途 | 获取地址 | 是否必需 |
+|---|---|---|:---:|
+| DeepSeek | 对话/记忆提取 | https://platform.deepseek.com | ✅ 必需 |
+| 智谱 | 记忆向量化 | https://open.bigmodel.cn | ⬜ 可选 |
+
+> 也可启动后在聊天窗右上角 **⚙ 设置** 里临时填写（会持久化到本地，重启不丢失）。
 
 ### 3. 启动
 ```bash
@@ -102,8 +120,10 @@ npm run dev
 | `Cmd/Ctrl+Shift+F` | 显示/隐藏聊天窗 |
 | 聊天窗标题栏 | 可拖动整个聊天窗 |
 | 💬 按钮 | 切换聊天窗显隐 |
-| 🔊 / 🔇 按钮 | 开启/关闭语音播放 |
-| ⚙ 按钮 | 设置 API Key / 模型 |
+| 🔊 / 🔘 按钮 | 开启/关闭语音播放 |
+| ⚙ 按钮 | 设置 API Key / 模型 / 记忆 |
+| 托盘图标右键 | 显示/隐藏流萤·聊天、切换语音、退出 |
+| 关闭窗口 | 不退出，常驻托盘（托盘菜单点「退出」才真正退出） |
 
 ---
 
@@ -113,12 +133,17 @@ npm run dev
 firefly-companion/
 ├─ src/
 │  ├─ main/                          # 主进程（Node 环境）
-│  │  ├─ index.ts                    # 入口：窗口/生命周期/dotenv
+│  │  ├─ index.ts                    # 入口：窗口/生命周期/初始化
 │  │  ├─ windows.ts                  # pet/chat 窗口创建
 │  │  ├─ ipc.ts                      # 所有 IPC 通道注册
+│  │  ├─ settings.ts                 # 设置持久化（本地 JSON）
+│  │  ├─ tray.ts                     # 系统托盘
 │  │  ├─ agent/                      # Agent 大脑
 │  │  │  ├─ persona.ts               # 流萤人设 System Prompt
-│  │  │  └─ llm.ts                   # LLM 流式调用（OpenAI 兼容）
+│  │  │  └─ llm.ts                   # LLM 流式调用 + 重试
+│  │  ├─ memory/                     # 长期记忆
+│  │  │  ├─ store.ts                 # SQLite 存储 + 向量检索
+│  │  │  └─ recall.ts                # 智谱 embedding + 记忆提取/召回
 │  │  └─ tts/
 │  │     └─ edge-tts.ts              # 语音合成（按句切分）
 │  ├─ preload/
@@ -130,7 +155,7 @@ firefly-companion/
 │        ├─ main.ts                  # 按 hash 路由到 pet/chat
 │        ├─ views/
 │        │  ├─ PetView.vue           # 浮动人物窗口
-│        │  └─ ChatView.vue          # 聊天 + 语音 + 口型同步
+│        │  └─ ChatView.vue          # 聊天 + 语音 + 设置面板
 │        ├─ components/
 │        │  └─ Live2DCanvas.vue      # Live2D 渲染 + 嘴型驱动
 │        ├─ composables/
@@ -138,7 +163,8 @@ firefly-companion/
 │        │  └─ useLipSync.ts         # Web Audio 音量分析
 │        └─ utils/
 │           └─ modelLoader.ts        # 模型入口扫描
-└─ resources/model/                  # 模型备份（不入库）
+├─ resources/                        # 托盘图标
+└─ .env.example                      # 环境变量模板
 ```
 
 ---
@@ -146,25 +172,28 @@ firefly-companion/
 ## 🧠 架构与核心数据流
 
 ```
-┌─────────────────────── 主进程 (Node) ───────────────────────┐
-│  窗口管理  │  Agent 大脑 (LLM 流式)  │  TTS (edge-tts)      │
-└───────────────────────────┬─────────────────────────────────┘
-                            │ IPC (contextBridge)
-┌───────────────────────────┴─────────────────────────────────┐
-│  chat 窗口                    │  pet 窗口                    │
-│  · 聊天 UI / 流式文字         │  · Live2D 渲染 (Pixi)        │
-│  · <audio> 播放 TTS           │  · 待机动作 / 眼神跟随        │
-│  · Web Audio 分析音量 ──IPC──→│  · ParamMouthOpenY 嘴型驱动  │
-└───────────────────────────────┴───────────────────────────────┘
+┌─────────────────────────── 主进程 (Node) ───────────────────────────┐
+│  窗口管理  │  Agent(LLM流式)  │  TTS(edge-tts)  │  记忆(SQLite+向量) │
+│           │                  │                 │  设置持久化/托盘    │
+└─────────────────────────────────┬───────────────────────────────────┘
+                                  │ IPC (contextBridge)
+┌─────────────────────────────────┴───────────────────────────────────┐
+│  chat 窗口                       │  pet 窗口                        │
+│  · 聊天 UI / 流式文字            │  · Live2D 渲染 (Pixi)            │
+│  · <audio> 播放 TTS              │  · 待机动作 / 眼神跟随            │
+│  · Web Audio 分析音量 ──IPC────→│  · ParamMouthOpenY 嘴型驱动      │
+└──────────────────────────────────┴───────────────────────────────────┘
 ```
 
 **一次对话的完整流程：**
 ```
 用户输入 → [unlock AudioContext]
+  → 召回相关长期记忆 → 注入 system prompt
   → LLM 流式回复（打字机效果）
-  → 回复完成 → edge-tts 按句合成 MP3
+  → 回复完成 → 异步提取记忆 → 智谱 embedding → SQLite 存储
+  → 同时 edge-tts 按句合成 MP3
   → chat 窗口 <audio> 播放
-  → 同时 Web Audio 实时分析音量(RMS) → IPC 推给 pet 窗口
+  → Web Audio 实时分析音量(RMS) → IPC 推给 pet 窗口
   → pet 窗口高频写入 ParamMouthOpenY → 嘴型随声音开合
 ```
 
@@ -188,12 +217,14 @@ firefly-companion/
 ## 📜 脚本
 
 ```bash
-npm run dev          # 开发模式
-npm run build        # 生产构建
-npm run typecheck    # 类型检查
-npm run build:mac    # 打包 macOS
-npm run build:win    # 打包 Windows
+npm run dev          # 开发模式（热重载）
+npm run build        # 生产构建（类型检查 + 编译）
+npm run typecheck    # 仅类型检查
+npm run build:mac    # 打包成 macOS DMG（arm64 + x64）
+npm run build:win    # 打包成 Windows EXE（NSIS 安装包）
 ```
+
+打包产物在 `release/` 目录，可直接分发安装。
 
 ---
 
@@ -204,8 +235,10 @@ npm run build:win    # 打包 Windows
 - ✅ **阶段 2**：Agent 对话（LLM + 人设 + 流式回复）
 - ✅ **阶段 3**：TTS 语音（edge-tts 中文语音）
 - ✅ **阶段 4**：口型同步 ⭐（边说边动嘴）
-- ⬜ **阶段 5**：长期记忆（跨会话记住用户）
-- ⬜ **阶段 6**：打磨与打包（设置持久化、托盘、错误处理）
+- ✅ **阶段 5**：长期记忆 ⭐（智谱 Embedding + SQLite，跨会话记住用户）
+- ✅ **阶段 6**：打磨与打包（设置持久化 + 托盘 + 错误重试 + DMG 打包）
+
+> 🎉 **全部 7 个阶段已完成**。核心能力齐备：会动、会聊、会说话、嘴型同步、记住你、可分发。
 
 ---
 
