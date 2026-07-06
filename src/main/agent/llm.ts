@@ -66,7 +66,6 @@ export async function chatStream(
   messages: ChatMessage[],
   onDelta: (text: string) => void
 ): Promise<string> {
-  const client = getClient()
   const { model } = getLlmConfig()
 
   // 召回相关记忆（基于用户最后一条消息）
@@ -87,25 +86,59 @@ export async function chatStream(
 
   const systemContent = PERSONA_PROMPT + memoryContext
 
-  const completion = await client.chat.completions.create({
-    model,
-    stream: true,
-    messages: [
-      { role: 'system', content: systemContent },
-      // 保留最近 20 轮，避免上下文过长
-      ...messages.slice(-20)
-    ],
-    temperature: 0.8, // 略高温度，让流萤的回复更生动自然
-    max_tokens: 600
-  })
+  // 带重试的流式调用（网络波动/API 限流时自动重试）
+  const MAX_RETRIES = 2
+  let lastErr: any
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const client = getClient() // 每次重试重新获取（key 可能中途被设置）
+      const completion = await client.chat.completions.create({
+        model,
+        stream: true,
+        messages: [
+          { role: 'system', content: systemContent },
+          ...messages.slice(-20)
+        ],
+        temperature: 0.8,
+        max_tokens: 600
+      })
 
-  let full = ''
-  for await (const chunk of completion) {
-    const delta = chunk.choices?.[0]?.delta?.content || ''
-    if (delta) {
-      full += delta
-      onDelta(delta)
+      let full = ''
+      for await (const chunk of completion) {
+        const delta = chunk.choices?.[0]?.delta?.content || ''
+        if (delta) {
+          full += delta
+          onDelta(delta)
+        }
+      }
+      return full
+    } catch (err: any) {
+      lastErr = err
+      // 4xx 错误（除 429 外）不重试（如 401 鉴权失败）
+      const status = err?.status || err?.response?.status
+      if (status && status >= 400 && status < 500 && status !== 429) break
+      // 最后一次不再等待
+      if (attempt < MAX_RETRIES) {
+        console.warn(`[LLM] 第 ${attempt + 1} 次失败，${1}s 后重试:`, err?.message)
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
+      }
     }
   }
-  return full
+  // 全部重试失败，抛出友好错误
+  throw friendlyError(lastErr)
+}
+
+/**
+ * 把底层 API 错误转成用户友好的提示。
+ */
+function friendlyError(err: any): Error {
+  const status = err?.status || err?.response?.status
+  const msg: string = err?.message || String(err)
+  if (status === 401) return new Error('API Key 无效或已过期，请检查设置')
+  if (status === 429) return new Error('请求太频繁或余额不足，请稍后再试或检查账户额度')
+  if (status >= 500) return new Error('服务器繁忙，请稍后再试')
+  if (msg.includes('fetch') || msg.includes('network') || msg.includes('ECONN')) {
+    return new Error('网络连接失败，请检查网络')
+  }
+  return new Error(msg)
 }

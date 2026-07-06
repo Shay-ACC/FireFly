@@ -11,6 +11,7 @@ import {
   setEmbeddingConfig,
   hasEmbeddingKey
 } from './memory/recall'
+import { saveSettings, getSettings, type AppSettings } from './settings'
 
 /**
  * 注册所有 IPC 通道
@@ -102,14 +103,21 @@ export function registerIpc(getWindows: () => {
     getWindows().chat?.webContents.send('memory:updated', { count: getMemoryCount() })
   }
 
-  /** 读取/保存 LLM 配置（API Key 等）。Key 仅存在内存，重启需重填或写入 .env */
+  /** 读取 LLM 配置（合并 .env + 持久化设置） */
   ipcMain.handle('agent:get-config', () => {
     const cfg = getLlmConfig()
     return { baseUrl: cfg.baseUrl, model: cfg.model, hasKey: !!cfg.apiKey }
   })
 
+  /** 保存 LLM 配置（持久化到本地） */
   ipcMain.handle('agent:set-config', (_event, cfg: { apiKey?: string; baseUrl?: string; model?: string }) => {
     setLlmConfig(cfg)
+    // 持久化（Key 写入本地文件，重启不丢）
+    saveSettings({
+      llmApiKey: cfg.apiKey,
+      llmBaseUrl: cfg.baseUrl,
+      llmModel: cfg.model
+    })
     const after = getLlmConfig()
     return { baseUrl: after.baseUrl, model: after.model, hasKey: !!after.apiKey }
   })
@@ -121,9 +129,10 @@ export function registerIpc(getWindows: () => {
     return { count: getMemoryCount(), hasEmbeddingKey: hasEmbeddingKey() }
   })
 
-  /** 设置 Embedding API Key（智谱） */
+  /** 设置 Embedding API Key（智谱），持久化 */
   ipcMain.handle('memory:set-embedding-key', (_event, apiKey: string) => {
     setEmbeddingConfig({ apiKey })
+    saveSettings({ embeddingApiKey: apiKey })
     return { hasEmbeddingKey: hasEmbeddingKey() }
   })
 
@@ -131,6 +140,23 @@ export function registerIpc(getWindows: () => {
   ipcMain.handle('memory:clear', () => {
     clearAllMemories()
     return { count: getMemoryCount() }
+  })
+
+  // ===== 通用设置持久化（阶段 6）=====
+  /** 读取所有设置（恢复 UI 状态：语音开关等） */
+  ipcMain.handle('settings:get', () => {
+    const s = getSettings()
+    // 不返回明文 Key，只返回状态 + 非敏感配置
+    return {
+      ttsEnabled: s.ttsEnabled ?? true,
+      ttsVoice: s.ttsVoice ?? 'zh-CN-XiaoyiNeural'
+    }
+  })
+
+  /** 保存 UI 设置 */
+  ipcMain.handle('settings:save', (_event, patch: Partial<AppSettings>) => {
+    saveSettings(patch)
+    return getSettings()
   })
 
   // ===== TTS 语音合成（阶段 3）=====

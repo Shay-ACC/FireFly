@@ -8,7 +8,7 @@
           class="icon-btn"
           :class="{ active: ttsEnabled }"
           :title="ttsEnabled ? '语音开（点击关闭）' : '语音关（点击开启）'"
-          @click="ttsEnabled = !ttsEnabled; !ttsEnabled && stopTts()"
+          @click="toggleTts"
         >{{ ttsEnabled ? '🔊' : '🔇' }}</button>
         <button class="icon-btn" title="设置" @click="showSettings = !showSettings">⚙</button>
         <button class="icon-btn" title="隐藏" @click="api.hideChat()">—</button>
@@ -187,6 +187,13 @@ function stopTts() {
   api.setMouthOpen(0)
 }
 
+/** 切换语音开关（带持久化） */
+function toggleTts() {
+  ttsEnabled.value = !ttsEnabled.value
+  if (!ttsEnabled.value) stopTts()
+  api.saveUiSettings({ ttsEnabled: ttsEnabled.value })
+}
+
 // 清理 IPC 监听器的函数集合
 let cleanups: (() => void)[] = []
 
@@ -203,6 +210,18 @@ onMounted(async () => {
   await refreshMemoryStatus()
   // 监听记忆更新通知（每轮对话后自动更新条数）
   cleanups.push(api.onMemoryUpdated(({ count }) => { memory.count = count }))
+
+  // 恢复持久化的 UI 设置（语音开关）
+  const uiSettings = await api.getUiSettings()
+  ttsEnabled.value = uiSettings.ttsEnabled
+
+  // 监听托盘菜单的语音切换
+  cleanups.push(
+    api.onTtsToggle((enabled) => {
+      ttsEnabled.value = enabled
+      if (!enabled) stopTts()
+    })
+  )
 
   // 注册流式回调
   cleanups.push(

@@ -75,6 +75,22 @@ const api = {
     return () => ipcRenderer.removeListener('memory:updated', handler as any)
   },
 
+  // ===== 通用设置持久化（阶段 6）=====
+  getUiSettings: () =>
+    ipcRenderer.invoke('settings:get') as Promise<{
+      ttsEnabled: boolean
+      ttsVoice: string
+    }>,
+  saveUiSettings: (patch: { ttsEnabled?: boolean; ttsVoice?: string }) =>
+    ipcRenderer.invoke('settings:save', patch),
+
+  // 托盘语音切换通知
+  onTtsToggle: (cb: (enabled: boolean) => void) => {
+    const handler = (_e: unknown, enabled: boolean) => cb(enabled)
+    ipcRenderer.on('tts:toggle', handler as any)
+    return () => ipcRenderer.removeListener('tts:toggle', handler as any)
+  },
+
   // ===== TTS 语音合成（阶段 3）=====
   /** 合成文本为语音，结果通过 onTtsAudio/onTtsDone/onTtsError 回调推送 */
   synthesize: (text: string, voice?: string) =>

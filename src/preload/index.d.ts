@@ -33,6 +33,11 @@ declare global {
       clearMemories: () => Promise<{ count: number }>
       onMemoryUpdated: (cb: (data: { count: number }) => void) => () => void
 
+      // 设置持久化
+      getUiSettings: () => Promise<{ ttsEnabled: boolean; ttsVoice: string }>
+      saveUiSettings: (patch: { ttsEnabled?: boolean; ttsVoice?: string }) => Promise<void>
+      onTtsToggle: (cb: (enabled: boolean) => void) => () => void
+
       // TTS 语音合成
       synthesize: (text: string, voice?: string) => Promise<void>
       onTtsAudio: (cb: (data: { requestId: string; audio: string }) => void) => () => void
