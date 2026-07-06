@@ -2,6 +2,7 @@ import { app, shell, globalShortcut, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createPetWindow, createChatWindow } from './windows'
 import { registerIpc } from './ipc'
+import { initMemoryStore, closeMemoryStore } from './memory/recall'
 
 // 加载 .env 环境变量（必须在其他模块使用 process.env 之前）
 import 'dotenv/config'
@@ -13,6 +14,9 @@ let chatWindow: BrowserWindow | undefined
 app.whenReady().then(() => {
   // 设置应用元信息
   electronApp.setAppUserModelId('com.firefly.companion')
+
+  // 初始化长期记忆库（SQLite）
+  initMemoryStore()
 
   // 开发者工具默认快捷键优化（F12），并禁止在 vue 路由跳转时打开新窗口
   app.on('browser-window-created', (_, window) => {
@@ -47,9 +51,10 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-// 应用退出时注销快捷键
+// 应用退出时注销快捷键 + 关闭记忆库
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+  closeMemoryStore()
 })
 
 // 屏蔽本地资源外部链接（安全）

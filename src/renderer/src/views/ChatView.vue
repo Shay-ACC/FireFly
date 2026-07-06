@@ -39,6 +39,24 @@
         <span v-if="config.hasKey" class="status-ok">✓ 已配置</span>
         <span v-else class="status-warn">未配置</span>
       </div>
+
+      <!-- 记忆配置（阶段 5） -->
+      <div class="setting-divider">记忆</div>
+      <div class="setting-row">
+        <label>智谱 Embedding Key（记忆用，可选）</label>
+        <input
+          v-model="settings.embeddingKey"
+          type="password"
+          placeholder="智谱 API Key（不填则不记忆）"
+          :class="{ ok: memory.hasEmbeddingKey }"
+        />
+      </div>
+      <div class="setting-actions">
+        <button class="save-btn" @click="saveEmbeddingKey">保存记忆配置</button>
+        <span class="status-ok" v-if="memory.hasEmbeddingKey">✓ 记忆已开启（{{ memory.count }} 条）</span>
+        <span class="status-warn" v-else>未开启</span>
+        <button v-if="memory.count > 0" class="clear-btn" @click="clearMemory">清空</button>
+      </div>
     </div>
 
     <!-- 消息区 -->
@@ -98,7 +116,10 @@ const errorMessage = ref('')
 const showSettings = ref(false)
 
 const config = reactive({ baseUrl: '', model: '', hasKey: false })
-const settings = reactive({ apiKey: '', baseUrl: '', model: 'deepseek-chat' })
+const settings = reactive({ apiKey: '', baseUrl: '', model: 'deepseek-chat', embeddingKey: '' })
+
+// ===== 长期记忆状态（阶段 5）=====
+const memory = reactive({ count: 0, hasEmbeddingKey: false })
 
 // ===== TTS 语音播放 =====
 const ttsEnabled = ref(true) // 语音开关（标题栏 🔊 按钮）
@@ -177,6 +198,11 @@ onMounted(async () => {
   config.hasKey = cfg.hasKey
   settings.baseUrl = cfg.baseUrl
   settings.model = cfg.model
+
+  // 加载记忆状态
+  await refreshMemoryStatus()
+  // 监听记忆更新通知（每轮对话后自动更新条数）
+  cleanups.push(api.onMemoryUpdated(({ count }) => { memory.count = count }))
 
   // 注册流式回调
   cleanups.push(
@@ -274,6 +300,25 @@ const saveSettings = async () => {
   config.model = result.model
   config.hasKey = result.hasKey
   if (result.hasKey) showSettings.value = false
+}
+
+// ===== 记忆管理（阶段 5）=====
+const refreshMemoryStatus = async () => {
+  const status = await api.getMemoryStatus()
+  memory.count = status.count
+  memory.hasEmbeddingKey = status.hasEmbeddingKey
+}
+
+const saveEmbeddingKey = async () => {
+  const result = await api.setEmbeddingKey(settings.embeddingKey)
+  memory.hasEmbeddingKey = result.hasEmbeddingKey
+  await refreshMemoryStatus()
+}
+
+const clearMemory = async () => {
+  if (!confirm('确定清空流萤的所有记忆吗？此操作不可撤销。')) return
+  const result = await api.clearMemories()
+  memory.count = result.count
 }
 
 const scrollBottom = async () => {
@@ -395,6 +440,27 @@ const scrollBottom = async () => {
 .status-warn {
   color: rgba(255, 180, 100, 0.9);
   font-size: 11px;
+}
+.setting-divider {
+  font-size: 11px;
+  color: rgba(255, 220, 150, 0.5);
+  margin-top: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 220, 150, 0.1);
+}
+.clear-btn {
+  margin-left: auto;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 100, 80, 0.4);
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 150, 130, 0.9);
+  font-size: 11px;
+  cursor: pointer;
+}
+.clear-btn:hover {
+  background: rgba(255, 100, 80, 0.15);
 }
 
 /* 消息区 */

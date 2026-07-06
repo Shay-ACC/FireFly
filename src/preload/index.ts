@@ -59,6 +59,22 @@ const api = {
       hasKey: boolean
     }>,
 
+  // ===== 长期记忆管理（阶段 5）=====
+  /** 查询记忆状态（条数 + 是否配置了 embedding key） */
+  getMemoryStatus: () =>
+    ipcRenderer.invoke('memory:status') as Promise<{ count: number; hasEmbeddingKey: boolean }>,
+  /** 设置 Embedding API Key（智谱） */
+  setEmbeddingKey: (apiKey: string) =>
+    ipcRenderer.invoke('memory:set-embedding-key', apiKey) as Promise<{ hasEmbeddingKey: boolean }>,
+  /** 清空所有记忆 */
+  clearMemories: () => ipcRenderer.invoke('memory:clear') as Promise<{ count: number }>,
+  /** 监听记忆更新通知 */
+  onMemoryUpdated: (cb: (data: { count: number }) => void) => {
+    const handler = (_e: unknown, data: { count: number }) => cb(data)
+    ipcRenderer.on('memory:updated', handler as any)
+    return () => ipcRenderer.removeListener('memory:updated', handler as any)
+  },
+
   // ===== TTS 语音合成（阶段 3）=====
   /** 合成文本为语音，结果通过 onTtsAudio/onTtsDone/onTtsError 回调推送 */
   synthesize: (text: string, voice?: string) =>

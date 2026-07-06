@@ -3,6 +3,14 @@ import { join, sep } from 'path'
 import { existsSync, readdirSync, statSync } from 'fs'
 import { chatStream, setLlmConfig, getLlmConfig, type ChatMessage } from './agent/llm'
 import { synthesizeText } from './tts/edge-tts'
+import {
+  extractMemories,
+  storeMemories,
+  getMemoryCount,
+  clearAllMemories,
+  setEmbeddingConfig,
+  hasEmbeddingKey
+} from './memory/recall'
 
 /**
  * 注册所有 IPC 通道
@@ -62,15 +70,37 @@ export function registerIpc(getWindows: () => {
       const { requestId, messages } = payload
       const sender = event.sender
       try {
-        await chatStream(messages, (delta) => {
+        const fullReply = await chatStream(messages, (delta) => {
           sender.send('agent:chat:delta', { requestId, delta })
         })
         sender.send('agent:chat:done', { requestId })
+
+        // 异步提取并保存长期记忆（不阻塞对话流程）
+        // 取最后一条 user 消息和流萤的完整回复
+        const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+        if (lastUser && fullReply && hasEmbeddingKey()) {
+          extractAndStoreMemory(lastUser.content, fullReply).catch((err) => {
+            console.warn('[Memory] 后台提取失败:', err)
+          })
+        }
       } catch (err: any) {
         sender.send('agent:chat:error', { requestId, message: err?.message || String(err) })
       }
     }
   )
+
+  /** 提取记忆并存储（异步，失败不影响对话） */
+  async function extractAndStoreMemory(userText: string, fireflyText: string): Promise<void> {
+    const facts = await extractMemories(userText, fireflyText)
+    if (facts.length === 0) {
+      console.log('[Memory] 本轮无需记忆')
+      return
+    }
+    console.log('[Memory] 提取出', facts.length, '条记忆:', facts)
+    await storeMemories(facts)
+    // 通知渲染进程记忆已更新（可选，用于记忆面板显示）
+    getWindows().chat?.webContents.send('memory:updated', { count: getMemoryCount() })
+  }
 
   /** 读取/保存 LLM 配置（API Key 等）。Key 仅存在内存，重启需重填或写入 .env */
   ipcMain.handle('agent:get-config', () => {
@@ -84,8 +114,24 @@ export function registerIpc(getWindows: () => {
     return { baseUrl: after.baseUrl, model: after.model, hasKey: !!after.apiKey }
   })
 
-  // ===== 占位：后续阶段实现的通道 =====
-  // memory:recall     —— 阶段 5 实现（长期记忆检索）
+  // ===== 长期记忆管理（阶段 5）=====
+
+  /** 查询记忆状态 */
+  ipcMain.handle('memory:status', () => {
+    return { count: getMemoryCount(), hasEmbeddingKey: hasEmbeddingKey() }
+  })
+
+  /** 设置 Embedding API Key（智谱） */
+  ipcMain.handle('memory:set-embedding-key', (_event, apiKey: string) => {
+    setEmbeddingConfig({ apiKey })
+    return { hasEmbeddingKey: hasEmbeddingKey() }
+  })
+
+  /** 清空所有记忆 */
+  ipcMain.handle('memory:clear', () => {
+    clearAllMemories()
+    return { count: getMemoryCount() }
+  })
 
   // ===== TTS 语音合成（阶段 3）=====
   /**

@@ -27,6 +27,12 @@ declare global {
       getLlmConfig: () => Promise<LlmConfig>
       setLlmConfig: (cfg: { apiKey?: string; baseUrl?: string; model?: string }) => Promise<LlmConfig>
 
+      // 长期记忆
+      getMemoryStatus: () => Promise<{ count: number; hasEmbeddingKey: boolean }>
+      setEmbeddingKey: (apiKey: string) => Promise<{ hasEmbeddingKey: boolean }>
+      clearMemories: () => Promise<{ count: number }>
+      onMemoryUpdated: (cb: (data: { count: number }) => void) => () => void
+
       // TTS 语音合成
       synthesize: (text: string, voice?: string) => Promise<void>
       onTtsAudio: (cb: (data: { requestId: string; audio: string }) => void) => () => void
