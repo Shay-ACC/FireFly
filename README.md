@@ -6,6 +6,13 @@
   <strong>会动 · 会聊 · 会说话 · 说话时嘴型还跟着声音同步</strong>
 </p>
 
+<p align="center">
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-CC--BY--NC--4.0-orange.svg"></a>
+  <a href="CHANGELOG.md"><img alt="Version" src="https://img.shields.io/badge/version-v0.1.0-blue.svg"></a>
+  <img alt="Platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-green.svg">
+  <img alt="Language" src="https://img.shields.io/badge/TypeScript-100%25-blue.svg">
+</p>
+
 ---
 
 ## ✨ 功能特性
@@ -244,13 +251,23 @@ npm run build:win    # 打包成 Windows EXE（NSIS 安装包）
 
 ## ⚖️ 版权与合规
 
-- **流萤（Firefly）角色版权归米哈游所有**。本项目为个人学习与自用的二次创作，**不得用于商业用途**，不得公开分发模型素材。
-- Live2D 同人模型请遵循原作者的使用授权条款。
-- edge-tts 为微软「大声朗读」的非官方接口，仅用于学习；商用请使用官方授权 TTS 服务。
+### 源代码许可
+本项目源代码采用 **[CC BY-NC 4.0](LICENSE)**（署名-非商业性使用）许可：
+- ✅ 允许个人学习、修改、非商用分发（需署名）
+- ❌ 禁止任何商业用途
+
+### 第三方素材版权（不属于源代码许可范围）
+- **流萤（Firefly）角色**：版权归米哈游（miHoYo）所有。本项目为非官方同人二次创作，仅供个人学习与娱乐。
+- **Live2D 模型**：版权归模型原作者所有，未包含在本仓库中，使用者需自行获取并遵守授权。
+- **edge-tts**：微软「大声朗读」非官方接口，仅用于学习，不保证可用性。
 - 使用在线 LLM API 时，注意不输入敏感个人信息。
+
+详见 [LICENSE](LICENSE) 文件。
 
 ---
 
 ## 📄 License
 
-UNLICENSED（仅供个人学习使用）
+[CC BY-NC 4.0](LICENSE) © 2026 Shay-ACC
+
+源代码免费开源（非商用），但不含 Live2D 模型/角色素材（版权归各自所有者）。

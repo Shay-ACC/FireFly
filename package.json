@@ -4,7 +4,7 @@
   "description": "流萤陪伴 Agent —— 桌面 Live2D 桌宠 + AI 对话 + 语音口型同步",
   "author": "chenhui",
   "main": "./out/main/index.js",
-  "license": "UNLICENSED",
+  "license": "CC-BY-NC-4.0",
   "private": true,
   "type": "module",
   "scripts": {
